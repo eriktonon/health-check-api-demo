@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-api-config
+  namespace: health-api-demo
+data:
+  # PostgreSQL Configuration
+  POSTGRES_DB: "demo_db"
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  
+  # Kafka Configuration
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-service:9092"
+  KAFKA_TOPIC: "data_events"
+  
+  # External API Configuration
+  EXTERNAL_API_URL: "https://jsonplaceholder.typicode.com"
+  
+  # Application Configuration
+  QUARKUS_HTTP_PORT: "8080"
+  QUARKUS_LOG_LEVEL: "INFO"

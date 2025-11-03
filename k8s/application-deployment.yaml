@@ -1,0 +1,151 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: health-api-demo
+  namespace: health-api-demo
+  labels:
+    app: health-api-demo
+    tier: application
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: health-api-demo
+  template:
+    metadata:
+      labels:
+        app: health-api-demo
+        tier: application
+    spec:
+      containers:
+      - name: health-api-demo
+        image: health-api-demo:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        # Database Configuration
+        - name: QUARKUS_DATASOURCE_JDBC_URL
+          valueFrom:
+            secretKeyRef:
+              name: health-api-secret
+              key: DATABASE_URL
+        - name: QUARKUS_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: health-api-secret
+              key: POSTGRES_USER
+        - name: QUARKUS_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: health-api-secret
+              key: POSTGRES_PASSWORD
+        
+        # Kafka Configuration
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom:
+            configMapKeyRef:
+              name: health-api-config
+              key: KAFKA_BOOTSTRAP_SERVERS
+        
+        # External API Configuration
+        - name: QUARKUS_REST_CLIENT_JSONPLACEHOLDER_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: health-api-config
+              key: EXTERNAL_API_URL
+        
+        # Application Configuration
+        - name: QUARKUS_HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: health-api-config
+              key: QUARKUS_HTTP_PORT
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        
+        # LIVENESS PROBE
+        # Verifica se a aplicação está viva e funcionando
+        # Se falhar, o Kubernetes reinicia o pod
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # READINESS PROBE
+        # Verifica se a aplicação está pronta para receber tráfego
+        # Se falhar, o pod é removido do Service (não recebe tráfego)
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # STARTUP PROBE (opcional)
+        # Protege containers de inicialização lenta
+        # Desativa liveness e readiness até que seja bem-sucedido
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-api-service
+  namespace: health-api-demo
+  labels:
+    app: health-api-demo
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: health-api-demo
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-api-service-internal
+  namespace: health-api-demo
+  labels:
+    app: health-api-demo
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: health-api-demo

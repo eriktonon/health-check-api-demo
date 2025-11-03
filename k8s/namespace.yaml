@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: health-api-demo
+  labels:
+    name: health-api-demo
+    environment: production
